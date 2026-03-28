@@ -23,6 +23,9 @@ COPY . .
 # Collect static files
 RUN python manage.py collectstatic --no-input
 
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 8000
 
-CMD sh -c "python manage.py migrate && gunicorn school_backend.wsgi --bind 0.0.0.0:${PORT:-8000} --log-file -"
+ENTRYPOINT ["/entrypoint.sh"]
