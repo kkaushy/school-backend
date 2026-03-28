@@ -69,6 +69,7 @@ DATABASES = {
         'HOST': config('DB_HOST', default='localhost'),
         'PORT': config('DB_PORT', default='5432'),
         'OPTIONS': _db_options,
+        'CONN_MAX_AGE': 0,  # Required for PgBouncer transaction pooler
     }
 }
 
