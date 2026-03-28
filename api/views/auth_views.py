@@ -1,205 +1,80 @@
-from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
-from rest_framework import serializers as drf_serializers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth.hashers import make_password, check_password
+from rest_framework.permissions import IsAuthenticated
 from ..models import User
 from ..serializers import UserSerializer
+from ..permissions import require_roles
 
 
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
-    return {
-        'refresh': str(refresh),
-        'access': str(refresh.access_token),
-    }
-
-
-class RegisterView(APIView):
-    @extend_schema(
-        tags=['Auth'],
-        summary='Register a new user',
-        request=inline_serializer(
-            name='RegisterRequest',
-            fields={
-                'name': drf_serializers.CharField(),
-                'email': drf_serializers.EmailField(),
-                'password': drf_serializers.CharField(),
-                'role': drf_serializers.ChoiceField(choices=['student', 'parent', 'staff', 'admin']),
-                'contact': drf_serializers.CharField(required=False),
-                'className': drf_serializers.CharField(required=False),
-                'rollNumber': drf_serializers.CharField(required=False),
-            },
-        ),
-        responses={
-            201: OpenApiResponse(response=UserSerializer, description='User registered'),
-            400: OpenApiResponse(description='Missing or invalid fields'),
-            409: OpenApiResponse(description='Email already exists'),
-        },
-    )
-    def post(self, request):
-        data = request.data
-        name = data.get('name')
-        email = data.get('email')
-        password = data.get('password')
-        role = data.get('role')
-        contact = data.get('contact')
-        class_name = data.get('className')
-        roll_number = data.get('rollNumber')
-
-        if not name or not email or not password or not role:
-            return Response({'message': 'Missing fields'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if role == 'student':
-            if not class_name or not roll_number:
-                return Response(
-                    {'message': 'Class and Roll Number required'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-        else:
-            if not contact:
-                return Response({'message': 'Contact required'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if User.objects.filter(email=email).exists():
-            return Response({'message': 'Email exists'}, status=status.HTTP_409_CONFLICT)
-
-        user = User.objects.create(
-            name=name,
-            email=email,
-            password=make_password(password),
-            role=role,
-            contact=contact if role != 'student' else None,
-            class_name=str(class_name) if role == 'student' else None,
-            roll_number=str(roll_number) if role == 'student' else None,
-        )
-
-        return Response(
-            {'message': 'Registered successfully', 'user': UserSerializer(user).data},
-            status=status.HTTP_201_CREATED,
-        )
+    return str(refresh.access_token)
 
 
 class LoginView(APIView):
-    @extend_schema(
-        tags=['Auth'],
-        summary='Login and obtain JWT tokens',
-        request=inline_serializer(
-            name='LoginRequest',
-            fields={
-                'email': drf_serializers.EmailField(),
-                'password': drf_serializers.CharField(),
-                'role': drf_serializers.ChoiceField(choices=['student', 'parent', 'staff', 'admin']),
-                'className': drf_serializers.CharField(required=False),
-                'rollNumber': drf_serializers.CharField(required=False),
-            },
-        ),
-        responses={
-            200: inline_serializer(
-                name='LoginResponse',
-                fields={
-                    'token': drf_serializers.CharField(),
-                    'refresh': drf_serializers.CharField(),
-                    'user': UserSerializer(),
-                },
-            ),
-            400: OpenApiResponse(description='Missing fields'),
-            401: OpenApiResponse(description='Invalid credentials'),
-        },
-    )
     def post(self, request):
-        data = request.data
-        email = data.get('email')
-        password = data.get('password')
-        role = data.get('role')
-        class_name = data.get('className')
-        roll_number = data.get('rollNumber')
-
-        if not email or not password or not role:
-            return Response({'message': 'Missing fields'}, status=status.HTTP_400_BAD_REQUEST)
-
+        email = request.data.get('email')
+        password = request.data.get('password')
+        if not email or not password:
+            return Response({'message': 'email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            if role == 'student':
-                user = User.objects.get(
-                    email=email,
-                    role=role,
-                    class_name=str(class_name),
-                    roll_number=str(roll_number),
-                )
-            else:
-                user = User.objects.get(email=email, role=role)
+            user = User.objects.get(email=email)
         except User.DoesNotExist:
-            return Response({'message': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
-
-        if not check_password(password, user.password):
-            return Response({'message': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
-
-        tokens = get_tokens_for_user(user)
-
+            return Response({'message': 'Invalid email or password'}, status=status.HTTP_400_BAD_REQUEST)
+        if not user.check_password(password):
+            return Response({'message': 'Invalid email or password'}, status=status.HTTP_400_BAD_REQUEST)
         return Response({
-            'token': tokens['access'],
-            'refresh': tokens['refresh'],
+            'token': get_tokens_for_user(user),
             'user': UserSerializer(user).data,
-        })
+        }, status=status.HTTP_201_CREATED)
 
 
-class LinkParentToStudentView(APIView):
-    @extend_schema(
-        tags=['Auth'],
-        summary='Link a parent user to a student user',
-        request=inline_serializer(
-            name='LinkParentRequest',
-            fields={
-                'parentId': drf_serializers.IntegerField(),
-                'studentEmail': drf_serializers.EmailField(required=False),
-                'rollNumber': drf_serializers.CharField(required=False),
-            },
-        ),
-        responses={
-            200: inline_serializer(
-                name='LinkParentResponse',
-                fields={
-                    'message': drf_serializers.CharField(),
-                    'parent': UserSerializer(),
-                    'student': UserSerializer(),
-                },
-            ),
-            400: OpenApiResponse(description='Missing fields'),
-            404: OpenApiResponse(description='Parent or student not found'),
-        },
-    )
-    def post(self, request):
-        data = request.data
-        parent_id = data.get('parentId')
-        student_email = data.get('studentEmail')
-        roll_number = data.get('rollNumber')
+class ProfileView(APIView):
+    permission_classes = [IsAuthenticated]
 
-        if not parent_id or (not student_email and not roll_number):
-            return Response(
-                {'message': 'Parent ID and student info required'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+    def get(self, request):
+        return Response(UserSerializer(request.user).data)
 
-        from django.db.models import Q
-        try:
-            student = User.objects.get(
-                Q(email=student_email) | Q(roll_number=roll_number),
-                role='student',
-            )
-        except User.DoesNotExist:
-            return Response({'message': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
+    def put(self, request):
+        user = request.user
+        name = request.data.get('name')
+        email = request.data.get('email')
+        if not name or not email:
+            return Response({'message': 'name and email are required'}, status=status.HTTP_400_BAD_REQUEST)
+        if email != user.email and User.objects.filter(email=email).exists():
+            return Response({'message': 'Email already in use'}, status=status.HTTP_409_CONFLICT)
+        user.name = name
+        user.email = email
+        user.save()
+        return Response(UserSerializer(user).data)
 
-        try:
-            parent = User.objects.get(id=parent_id, role='parent')
-        except User.DoesNotExist:
-            return Response({'message': 'Parent not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        parent.linked_student_user = student
-        parent.save()
+class PasswordView(APIView):
+    permission_classes = [IsAuthenticated]
 
-        return Response({
-            'message': 'Parent linked to student',
-            'parent': UserSerializer(parent).data,
-            'student': UserSerializer(student).data,
-        })
+    def put(self, request):
+        current_password = request.data.get('current_password')
+        new_password = request.data.get('new_password')
+        if not current_password or not new_password:
+            return Response({'message': 'current_password and new_password are required'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(new_password) < 6:
+            return Response({'message': 'new_password must be at least 6 characters'}, status=status.HTTP_400_BAD_REQUEST)
+        if not request.user.check_password(current_password):
+            return Response({'message': 'Current password is incorrect'}, status=status.HTTP_400_BAD_REQUEST)
+        request.user.set_password(new_password)
+        request.user.save()
+        return Response({'message': 'Password updated successfully'})
+
+
+class AvatarView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        avatar_url = request.data.get('avatar_url')
+        if not avatar_url:
+            return Response({'message': 'avatar_url is required'}, status=status.HTTP_400_BAD_REQUEST)
+        request.user.avatar_url = avatar_url
+        request.user.save()
+        return Response(UserSerializer(request.user).data)

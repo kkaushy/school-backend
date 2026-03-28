@@ -1,123 +1,64 @@
-from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from ..models import Student
 from ..serializers import StudentSerializer
+from ..permissions import require_roles
+from branches.models import BranchUser
+from classes.models import ClassTeacher, ClassStudent
+
+
+def get_accessible_students(user):
+    if user.role == 'company_admin':
+        branch_ids = user.branches.values_list('id', flat=True)
+        return Student.objects.filter(branch_id__in=branch_ids)
+    elif user.role == 'branch_admin':
+        branch_ids = BranchUser.objects.filter(user=user).values_list('branch_id', flat=True)
+        return Student.objects.filter(branch_id__in=branch_ids)
+    elif user.role == 'teacher':
+        class_ids = ClassTeacher.objects.filter(teacher=user).values_list('class_ref_id', flat=True)
+        student_ids = ClassStudent.objects.filter(class_ref_id__in=class_ids).values_list('student_id', flat=True)
+        return Student.objects.filter(id__in=student_ids)
+    elif user.role == 'parent':
+        return Student.objects.filter(parent=user)
+    elif user.role == 'student':
+        try:
+            return Student.objects.filter(user=user)
+        except Exception:
+            return Student.objects.none()
+    return Student.objects.none()
 
 
 class StudentListCreateView(APIView):
-    @extend_schema(
-        tags=['Students'],
-        summary='List all students',
-        responses={200: StudentSerializer(many=True)},
-    )
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
-        students = Student.objects.all().order_by('name')
-        serializer = StudentSerializer(students, many=True)
-        return Response(serializer.data)
+        students = get_accessible_students(request.user)
+        return Response(StudentSerializer(students, many=True).data)
 
-    @extend_schema(
-        tags=['Students'],
-        summary='Create a new student',
-        request=StudentSerializer,
-        responses={
-            201: StudentSerializer,
-            400: OpenApiResponse(description='Missing or invalid fields'),
-            409: OpenApiResponse(description='Seat number already taken in this class'),
-        },
-    )
+    @require_roles('company_admin', 'branch_admin')
     def post(self, request):
-        data = request.data
-        name = data.get('name')
-        class_name = data.get('className') or data.get('class_name')
-        seat_number = data.get('seatNumber') or data.get('seat_number')
-        gender = data.get('gender')
-
-        if not name or not class_name or seat_number is None or not gender:
-            return Response({'message': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            seat_number = int(seat_number)
-        except (ValueError, TypeError):
-            return Response({'message': 'Seat number must be a number'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if Student.objects.filter(seat_number=seat_number, class_name=class_name).exists():
-            return Response(
-                {'message': f'Seat number {seat_number} already exists in class {class_name}'},
-                status=status.HTTP_409_CONFLICT,
-            )
-
+        name = request.data.get('name')
+        branch_id = request.data.get('branch_id')
+        if not name or not branch_id:
+            return Response({'message': 'name and branch_id are required'}, status=status.HTTP_400_BAD_REQUEST)
         student = Student.objects.create(
             name=name,
-            class_name=str(class_name),
-            seat_number=seat_number,
-            gender=gender,
+            branch_id=branch_id,
+            parent_id=request.data.get('parent_id'),
         )
-
         return Response(StudentSerializer(student).data, status=status.HTTP_201_CREATED)
 
 
 class StudentDetailView(APIView):
-    def get_object(self, pk):
-        try:
-            return Student.objects.get(pk=pk)
-        except Student.DoesNotExist:
-            return None
+    permission_classes = [IsAuthenticated]
 
-    @extend_schema(
-        tags=['Students'],
-        summary='Update a student',
-        request=StudentSerializer,
-        responses={
-            200: StudentSerializer,
-            400: OpenApiResponse(description='Invalid seat number'),
-            404: OpenApiResponse(description='Student not found'),
-            409: OpenApiResponse(description='Seat number conflict'),
-        },
-    )
-    def put(self, request, pk):
-        student = self.get_object(pk)
-        if not student:
-            return Response({'message': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        data = request.data
-        name = data.get('name', student.name)
-        class_name = data.get('className') or data.get('class_name') or student.class_name
-        seat_number = data.get('seatNumber') or data.get('seat_number') or student.seat_number
-        gender = data.get('gender', student.gender)
-
-        try:
-            seat_number = int(seat_number)
-        except (ValueError, TypeError):
-            return Response({'message': 'Seat number must be a number'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if Student.objects.filter(seat_number=seat_number, class_name=class_name).exclude(pk=pk).exists():
-            return Response(
-                {'message': f'Seat number {seat_number} already exists in class {class_name}'},
-                status=status.HTTP_409_CONFLICT,
-            )
-
-        student.name = name
-        student.class_name = str(class_name)
-        student.seat_number = seat_number
-        student.gender = gender
-        student.save()
-
-        return Response(StudentSerializer(student).data)
-
-    @extend_schema(
-        tags=['Students'],
-        summary='Delete a student',
-        responses={
-            200: OpenApiResponse(description='Student deleted'),
-            404: OpenApiResponse(description='Student not found'),
-        },
-    )
+    @require_roles('company_admin', 'branch_admin')
     def delete(self, request, pk):
-        student = self.get_object(pk)
-        if not student:
+        try:
+            student = Student.objects.get(pk=pk)
+        except Student.DoesNotExist:
             return Response({'message': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
-
         student.delete()
-        return Response({'message': 'Student deleted'})
+        return Response({'message': 'Student deleted successfully'})
