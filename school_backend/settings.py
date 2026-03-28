@@ -57,8 +57,10 @@ TEMPLATES = [
 WSGI_APPLICATION = 'school_backend.wsgi.application'
 
 _db_options = {}
-if config('DB_SSLMODE', default='') == 'require':
-    _db_options['sslmode'] = 'require'
+_sslmode = config('DB_SSLMODE', default='')
+if _sslmode:
+    _db_options['sslmode'] = _sslmode
+    _db_options['sslrootcert'] = 'disable'  # Skip cert verification; encryption still active
 
 DATABASES = {
     'default': {
