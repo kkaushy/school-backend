@@ -63,6 +63,8 @@ _db_options = {}
 _sslmode = config('DB_SSLMODE', default='')
 if _sslmode:
     _db_options['sslmode'] = _sslmode
+    if _sslmode == 'require':
+        _db_options['sslrootcert'] = ''
 
 if _database_url:
     _u = _urlparse.urlparse(_database_url)
