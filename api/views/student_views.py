@@ -52,10 +52,9 @@ class StudentListCreateView(APIView):
         branch_id = request.data.get('branch_id')
         if not name or not branch_id:
             return Response({'message': 'name and branch_id are required'}, status=status.HTTP_400_BAD_REQUEST)
-        if not request.user.is_superuser:
-            admin_branch_ids = set(str(b) for b in _get_admin_branch_ids(request.user))
-            if str(branch_id) not in admin_branch_ids:
-                return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
+        admin_branch_ids = set(str(b) for b in _get_admin_branch_ids(request.user))
+        if str(branch_id) not in admin_branch_ids:
+            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         student = Student.objects.create(
             name=name,
             branch_id=branch_id,
@@ -73,10 +72,9 @@ class StudentDetailView(APIView):
             student = Student.objects.get(pk=pk)
         except Student.DoesNotExist:
             return Response({'message': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
-        if not request.user.is_superuser:
-            from branches.models import BranchUser
-            admin_branch_ids = set(_get_admin_branch_ids(request.user))
-            if str(student.branch_id) not in {str(b) for b in admin_branch_ids}:
-                return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
+        from branches.models import BranchUser
+        admin_branch_ids = set(_get_admin_branch_ids(request.user))
+        if str(student.branch_id) not in {str(b) for b in admin_branch_ids}:
+            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         student.delete()
         return Response({'message': 'Student deleted successfully'})

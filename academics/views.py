@@ -41,6 +41,9 @@ class AcademicRecordListCreateView(APIView):
 
     @require_roles('company_admin', 'branch_admin', 'teacher')
     def post(self, request):
+        if not request.user.is_superuser:
+            # Additional permission checks if needed, but since decorator handles roles, maybe not
+            pass
         required = ['student_id', 'class_id', 'term', 'subject_name', 'grade_score']
         for field in required:
             if not request.data.get(field):

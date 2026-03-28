@@ -85,8 +85,9 @@ class TimetableDetailView(APIView):
             slot = TimetableSlot.objects.get(pk=pk)
         except TimetableSlot.DoesNotExist:
             return Response({'message': 'Slot not found'}, status=status.HTTP_404_NOT_FOUND)
-        admin_branch_ids = set(str(b) for b in _get_admin_branch_ids(request.user))
-        if str(slot.branch_id) not in admin_branch_ids:
-            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
+        if not request.user.is_superuser:
+            admin_branch_ids = set(str(b) for b in _get_admin_branch_ids(request.user))
+            if str(slot.branch_id) not in admin_branch_ids:
+                return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         slot.delete()
         return Response({'message': 'Slot removed'})

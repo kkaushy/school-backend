@@ -57,10 +57,11 @@ class NotificationListCreateView(APIView):
         target_roles = request.data.get('target_roles', [])
         if not title or not message or not target_roles:
             return Response({'message': 'title, message, and target_roles are required'}, status=status.HTTP_400_BAD_REQUEST)
-        allowed = ROLE_TARGET_MAP.get(request.user.role, [])
-        invalid = [r for r in target_roles if r not in allowed]
-        if invalid:
-            return Response({'message': f'Cannot target roles: {invalid}'}, status=status.HTTP_403_FORBIDDEN)
+        if not request.user.is_superuser:
+            allowed = ROLE_TARGET_MAP.get(request.user.role, [])
+            invalid = [r for r in target_roles if r not in allowed]
+            if invalid:
+                return Response({'message': f'Cannot target roles: {invalid}'}, status=status.HTTP_403_FORBIDDEN)
         target_branch_id = request.data.get('target_branch_id')
         target_class_id = request.data.get('target_class_id')
         with transaction.atomic():
