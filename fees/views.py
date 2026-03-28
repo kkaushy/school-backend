@@ -21,8 +21,12 @@ class FeeHeadListCreateView(APIView):
 
     @require_roles('company_admin', 'branch_admin')
     def get(self, request):
-        branch_ids = get_admin_branch_ids(request.user)
-        fee_heads = FeeHead.objects.filter(branch_id__in=branch_ids, is_active=True)
+        user = request.user
+        if user.is_superuser:
+            fee_heads = FeeHead.objects.filter(is_active=True)
+        else:
+            branch_ids = get_admin_branch_ids(request.user)
+            fee_heads = FeeHead.objects.filter(branch_id__in=branch_ids, is_active=True)
         return Response(FeeHeadSerializer(fee_heads, many=True).data)
 
     @require_roles('company_admin', 'branch_admin')
@@ -31,9 +35,10 @@ class FeeHeadListCreateView(APIView):
         for field in required:
             if not request.data.get(field):
                 return Response({'message': f'{field} is required'}, status=status.HTTP_400_BAD_REQUEST)
-        admin_branch_ids = set(str(b) for b in get_admin_branch_ids(request.user))
-        if str(request.data['branch_id']) not in admin_branch_ids:
-            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
+        if not request.user.is_superuser:
+            admin_branch_ids = set(str(b) for b in get_admin_branch_ids(request.user))
+            if str(request.data['branch_id']) not in admin_branch_ids:
+                return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         fee_head = FeeHead.objects.create(
             branch_id=request.data['branch_id'],
             name=request.data['name'],
@@ -53,9 +58,10 @@ class FeeHeadDetailView(APIView):
             fee_head = FeeHead.objects.get(pk=pk)
         except FeeHead.DoesNotExist:
             return Response({'message': 'Fee head not found'}, status=status.HTTP_404_NOT_FOUND)
-        admin_branch_ids = set(str(b) for b in get_admin_branch_ids(request.user))
-        if str(fee_head.branch_id) not in admin_branch_ids:
-            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
+        if not request.user.is_superuser:
+            admin_branch_ids = set(str(b) for b in get_admin_branch_ids(request.user))
+            if str(fee_head.branch_id) not in admin_branch_ids:
+                return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         fee_head.is_active = False
         fee_head.save()
         return Response({'message': 'Fee head deactivated'})

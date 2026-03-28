@@ -16,7 +16,9 @@ def _get_admin_branch_ids(user):
 
 
 def get_accessible_slots(user, class_id=None):
-    if user.role == 'company_admin':
+    if user.is_superuser:
+        qs = TimetableSlot.objects.all()
+    elif user.role == 'company_admin':
         branch_ids = user.branches.values_list('id', flat=True)
         qs = TimetableSlot.objects.filter(branch_id__in=branch_ids)
     elif user.role == 'branch_admin':

@@ -21,7 +21,9 @@ class UserListCreateView(APIView):
     @require_roles('company_admin', 'branch_admin')
     def get(self, request):
         user = request.user
-        if user.role == 'company_admin':
+        if user.is_superuser:
+            users = User.objects.all()
+        elif user.role == 'company_admin':
             branch_ids = user.branches.values_list('id', flat=True)
             user_ids = BranchUser.objects.filter(branch_id__in=branch_ids).values_list('user_id', flat=True)
             users = User.objects.filter(id__in=user_ids).exclude(id=user.id)
@@ -66,11 +68,12 @@ class UserDetailView(APIView):
             user = User.objects.get(pk=pk)
         except User.DoesNotExist:
             return Response({'message': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-        # Scope check: ensure requesting admin has access to this user's branch
-        admin_branch_ids = set(_get_admin_branch_ids(request.user))
-        user_branch_ids = set(BranchUser.objects.filter(user=user).values_list('branch_id', flat=True))
-        if not admin_branch_ids.intersection(user_branch_ids):
-            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
+        if not request.user.is_superuser:
+            # Scope check: ensure requesting admin has access to this user's branch
+            admin_branch_ids = set(_get_admin_branch_ids(request.user))
+            user_branch_ids = set(BranchUser.objects.filter(user=user).values_list('branch_id', flat=True))
+            if not admin_branch_ids.intersection(user_branch_ids):
+                return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         user.delete()
         return Response({'message': 'User deleted'})
 

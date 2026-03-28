@@ -12,7 +12,9 @@ class BranchListCreateView(APIView):
 
     def get(self, request):
         user = request.user
-        if user.role == 'company_admin':
+        if user.is_superuser:
+            branches = Branch.objects.all()
+        elif user.role == 'company_admin':
             branches = Branch.objects.filter(company_admin=user)
         else:
             branch_ids = BranchUser.objects.filter(user=user).values_list('branch_id', flat=True)
@@ -40,7 +42,7 @@ class BranchDetailView(APIView):
             branch = Branch.objects.get(pk=pk)
         except Branch.DoesNotExist:
             return None, Response({'message': 'Branch not found'}, status=status.HTTP_404_NOT_FOUND)
-        if user.role == 'company_admin' and branch.company_admin != user:
+        if not user.is_superuser and user.role == 'company_admin' and branch.company_admin != user:
             return None, Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         return branch, None
 

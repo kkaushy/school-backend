@@ -94,8 +94,8 @@ def login(email, password):
 
 # ── seed data ─────────────────────────────────────────────────────────────────
 
-ADMIN_EMAIL    = "admin@school.com"
-ADMIN_PASSWORD = "admin123"
+ADMIN_EMAIL    = "kkaushy@gmail.com"
+ADMIN_PASSWORD = "RR5gL4zPnAM9!$#6"
 
 BRANCHES = [
     {"name": "Main Campus",   "location": "Bangalore, MG Road"},
@@ -181,8 +181,28 @@ def step_admin_login():
         STATE["admin_token"] = token
         ok("Admin token stored")
     else:
-        fail("Admin login failed — cannot continue seeding")
-        sys.exit(1)
+        info("Admin login failed — attempting to create admin user")
+        # Try to create the admin user
+        admin_data = {
+            "name": "Admin User",
+            "email": ADMIN_EMAIL,
+            "password": ADMIN_PASSWORD,
+            "role": "company_admin"
+        }
+        res = post("/api/auth/register/", admin_data, expect=[200, 201, 400, 409])
+        if res.get("message") or res.get("id"):
+            ok("Admin user created")
+            # Now try login again
+            token = login(ADMIN_EMAIL, ADMIN_PASSWORD)
+            if token:
+                STATE["admin_token"] = token
+                ok("Admin token stored")
+            else:
+                fail("Admin login failed after creation — cannot continue seeding")
+                sys.exit(1)
+        else:
+            fail("Admin user creation failed — cannot continue seeding")
+            sys.exit(1)
 
 
 def step_branches():

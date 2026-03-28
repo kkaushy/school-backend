@@ -15,6 +15,8 @@ def _get_admin_branch_ids(user):
 
 
 def get_accessible_classes(user):
+    if user.is_superuser:
+        return Class.objects.all()
     if user.role == 'company_admin':
         branch_ids = user.branches.values_list('id', flat=True)
         return Class.objects.filter(branch_id__in=branch_ids)
@@ -40,9 +42,10 @@ class ClassListCreateView(APIView):
         branch_id = request.data.get('branch_id')
         if not name or not branch_id:
             return Response({'message': 'name and branch_id are required'}, status=status.HTTP_400_BAD_REQUEST)
-        admin_branch_ids = set(str(b) for b in _get_admin_branch_ids(request.user))
-        if str(branch_id) not in admin_branch_ids:
-            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
+        if not request.user.is_superuser:
+            admin_branch_ids = set(str(b) for b in _get_admin_branch_ids(request.user))
+            if str(branch_id) not in admin_branch_ids:
+                return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         cls = Class.objects.create(name=name, branch_id=branch_id)
         return Response(ClassSerializer(cls).data, status=status.HTTP_201_CREATED)
 
@@ -56,9 +59,10 @@ class ClassDetailView(APIView):
             cls = Class.objects.get(pk=pk)
         except Class.DoesNotExist:
             return Response({'message': 'Class not found'}, status=status.HTTP_404_NOT_FOUND)
-        admin_branch_ids = set(_get_admin_branch_ids(request.user))
-        if str(cls.branch_id) not in {str(b) for b in admin_branch_ids}:
-            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
+        if not request.user.is_superuser:
+            admin_branch_ids = set(_get_admin_branch_ids(request.user))
+            if str(cls.branch_id) not in {str(b) for b in admin_branch_ids}:
+                return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         cls.delete()
         return Response({'message': 'Class deleted successfully'})
 

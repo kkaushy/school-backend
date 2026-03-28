@@ -10,6 +10,8 @@ from classes.models import ClassTeacher, ClassStudent
 
 
 def get_accessible_records(user):
+    if user.is_superuser:
+        return AcademicRecord.objects.all()
     if user.role == 'company_admin':
         branch_ids = user.branches.values_list('id', flat=True)
         return AcademicRecord.objects.filter(branch_id__in=branch_ids)
