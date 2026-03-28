@@ -13,7 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libssl-dev \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && sed -i 's/MinProtocol = TLSv1.2/MinProtocol = TLSv1/' /etc/ssl/openssl.cnf \
+    && sed -i 's/CipherString = DEFAULT@SECLEVEL=2/CipherString = DEFAULT@SECLEVEL=1/' /etc/ssl/openssl.cnf
 
 # Install Python dependencies
 COPY requirements.txt .
