@@ -1,9 +1,9 @@
 services:
   - type: web
     name: school-backend
-    runtime: python
-    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --no-input
-    startCommand: python manage.py migrate && gunicorn school_backend.wsgi --log-file -
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: sh -c "python manage.py migrate && gunicorn school_backend.wsgi --bind 0.0.0.0:$PORT --log-file -"
     healthCheckPath: /api/schema/
     envVars:
       - key: SECRET_KEY
