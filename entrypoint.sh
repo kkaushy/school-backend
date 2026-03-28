@@ -1,10 +1,10 @@
 #!/bin/sh
 set -e
 
-echo "Running database migrations..."
-python manage.py migrate --no-input
+echo "PORT=${PORT:-8000}"
+echo "DB_HOST=${DB_HOST}"
+echo "Starting gunicorn..."
 
-echo "Starting gunicorn on port ${PORT:-8000}..."
 exec gunicorn school_backend.wsgi \
     --bind "0.0.0.0:${PORT:-8000}" \
     --workers 2 \
