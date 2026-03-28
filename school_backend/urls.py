@@ -5,8 +5,12 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
-
-    # OpenAPI schema + docs
+    path('api/', include('branches.urls')),
+    path('api/', include('classes.urls')),
+    path('api/', include('academics.urls')),
+    path('api/', include('timetable.urls')),
+    path('api/', include('notifications.urls')),
+    path('api/', include('fees.urls')),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),

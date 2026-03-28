@@ -22,6 +22,12 @@ INSTALLED_APPS = [
     'corsheaders',
     'drf_spectacular',
     'api',
+    'branches',
+    'classes',
+    'academics',
+    'timetable',
+    'notifications',
+    'fees',
 ]
 
 MIDDLEWARE = [
@@ -138,7 +144,7 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
     'ENUM_NAME_OVERRIDES': {
-        'UserRoleEnum': ['student', 'parent', 'staff', 'admin'],
+        'UserRoleEnum': ['company_admin', 'branch_admin', 'teacher', 'parent', 'student'],
     },
     'SECURITY': [{'bearerAuth': []}],
     'APPEND_COMPONENTS': {
