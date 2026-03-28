@@ -9,6 +9,12 @@ from branches.models import BranchUser
 from classes.models import ClassTeacher, ClassStudent
 
 
+def _get_admin_branch_ids(user):
+    if user.role == 'company_admin':
+        return list(user.branches.values_list('id', flat=True))
+    return list(BranchUser.objects.filter(user=user).values_list('branch_id', flat=True))
+
+
 def get_accessible_slots(user, class_id=None):
     if user.role == 'company_admin':
         branch_ids = user.branches.values_list('id', flat=True)
@@ -77,5 +83,8 @@ class TimetableDetailView(APIView):
             slot = TimetableSlot.objects.get(pk=pk)
         except TimetableSlot.DoesNotExist:
             return Response({'message': 'Slot not found'}, status=status.HTTP_404_NOT_FOUND)
+        admin_branch_ids = set(str(b) for b in _get_admin_branch_ids(request.user))
+        if str(slot.branch_id) not in admin_branch_ids:
+            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         slot.delete()
         return Response({'message': 'Slot removed'})

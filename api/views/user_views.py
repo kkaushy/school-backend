@@ -9,6 +9,12 @@ from ..permissions import require_roles
 from branches.models import BranchUser
 
 
+def _get_admin_branch_ids(user):
+    if user.role == 'company_admin':
+        return list(user.branches.values_list('id', flat=True))
+    return list(BranchUser.objects.filter(user=user).values_list('branch_id', flat=True))
+
+
 class UserListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -60,6 +66,11 @@ class UserDetailView(APIView):
             user = User.objects.get(pk=pk)
         except User.DoesNotExist:
             return Response({'message': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        # Scope check: ensure requesting admin has access to this user's branch
+        admin_branch_ids = set(_get_admin_branch_ids(request.user))
+        user_branch_ids = set(BranchUser.objects.filter(user=user).values_list('branch_id', flat=True))
+        if not admin_branch_ids.intersection(user_branch_ids):
+            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         user.delete()
         return Response({'message': 'User deleted'})
 

@@ -25,10 +25,12 @@ class LoginView(APIView):
             return Response({'message': 'Invalid email or password'}, status=status.HTTP_400_BAD_REQUEST)
         if not user.check_password(password):
             return Response({'message': 'Invalid email or password'}, status=status.HTTP_400_BAD_REQUEST)
+        if not user.is_active:
+            return Response({'message': 'Account is deactivated'}, status=status.HTTP_401_UNAUTHORIZED)
         return Response({
             'token': get_tokens_for_user(user),
             'user': UserSerializer(user).data,
-        }, status=status.HTTP_201_CREATED)
+        })
 
 
 class ProfileView(APIView):

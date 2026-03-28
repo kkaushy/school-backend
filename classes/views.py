@@ -8,6 +8,12 @@ from api.permissions import require_roles
 from branches.models import BranchUser
 
 
+def _get_admin_branch_ids(user):
+    if user.role == 'company_admin':
+        return list(user.branches.values_list('id', flat=True))
+    return list(BranchUser.objects.filter(user=user).values_list('branch_id', flat=True))
+
+
 def get_accessible_classes(user):
     if user.role == 'company_admin':
         branch_ids = user.branches.values_list('id', flat=True)
@@ -34,6 +40,9 @@ class ClassListCreateView(APIView):
         branch_id = request.data.get('branch_id')
         if not name or not branch_id:
             return Response({'message': 'name and branch_id are required'}, status=status.HTTP_400_BAD_REQUEST)
+        admin_branch_ids = set(str(b) for b in _get_admin_branch_ids(request.user))
+        if str(branch_id) not in admin_branch_ids:
+            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         cls = Class.objects.create(name=name, branch_id=branch_id)
         return Response(ClassSerializer(cls).data, status=status.HTTP_201_CREATED)
 
@@ -47,6 +56,9 @@ class ClassDetailView(APIView):
             cls = Class.objects.get(pk=pk)
         except Class.DoesNotExist:
             return Response({'message': 'Class not found'}, status=status.HTTP_404_NOT_FOUND)
+        admin_branch_ids = set(_get_admin_branch_ids(request.user))
+        if str(cls.branch_id) not in {str(b) for b in admin_branch_ids}:
+            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         cls.delete()
         return Response({'message': 'Class deleted successfully'})
 
@@ -60,6 +72,13 @@ class AssignTeacherView(APIView):
         teacher_id = request.data.get('teacher_id')
         if not class_id or not teacher_id:
             return Response({'message': 'class_id and teacher_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            cls = Class.objects.get(pk=class_id)
+        except Class.DoesNotExist:
+            return Response({'message': 'Class not found'}, status=status.HTTP_404_NOT_FOUND)
+        admin_branch_ids = set(str(b) for b in _get_admin_branch_ids(request.user))
+        if str(cls.branch_id) not in admin_branch_ids:
+            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         ClassTeacher.objects.get_or_create(class_ref_id=class_id, teacher_id=teacher_id)
         return Response({'message': 'Teacher assigned successfully'})
 
@@ -73,5 +92,12 @@ class AssignStudentView(APIView):
         student_id = request.data.get('student_id')
         if not class_id or not student_id:
             return Response({'message': 'class_id and student_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            cls = Class.objects.get(pk=class_id)
+        except Class.DoesNotExist:
+            return Response({'message': 'Class not found'}, status=status.HTTP_404_NOT_FOUND)
+        admin_branch_ids = set(str(b) for b in _get_admin_branch_ids(request.user))
+        if str(cls.branch_id) not in admin_branch_ids:
+            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         ClassStudent.objects.get_or_create(class_ref_id=class_id, student_id=student_id)
         return Response({'message': 'Student assigned successfully'})

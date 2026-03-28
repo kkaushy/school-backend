@@ -16,8 +16,25 @@ class AttendanceView(APIView):
         date = request.query_params.get('date')
         if not class_id or not date:
             return Response({'message': 'class_id and date are required'}, status=status.HTTP_400_BAD_REQUEST)
+        user = request.user
+        # Role-based access check
+        if user.role == 'teacher':
+            from classes.models import ClassTeacher
+            if not ClassTeacher.objects.filter(teacher=user, class_ref_id=class_id).exists():
+                return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
+        elif user.role in ('parent', 'student'):
+            pass  # They see filtered results below — handled by student scoping
+        # Proceed with data fetch
         student_ids = ClassStudent.objects.filter(class_ref_id=class_id).values_list('student_id', flat=True)
         students = Student.objects.filter(id__in=student_ids)
+        # For parent/student roles, further filter to their own students
+        if user.role == 'parent':
+            students = students.filter(parent=user)
+        elif user.role == 'student':
+            try:
+                students = students.filter(user=user)
+            except Exception:
+                students = Student.objects.none()
         attendance_map = {
             a.student_id: a
             for a in Attendance.objects.filter(class_ref_id=class_id, date=date, student_id__in=student_ids)

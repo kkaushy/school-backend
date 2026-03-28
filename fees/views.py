@@ -31,6 +31,9 @@ class FeeHeadListCreateView(APIView):
         for field in required:
             if not request.data.get(field):
                 return Response({'message': f'{field} is required'}, status=status.HTTP_400_BAD_REQUEST)
+        admin_branch_ids = set(str(b) for b in get_admin_branch_ids(request.user))
+        if str(request.data['branch_id']) not in admin_branch_ids:
+            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         fee_head = FeeHead.objects.create(
             branch_id=request.data['branch_id'],
             name=request.data['name'],
@@ -50,6 +53,9 @@ class FeeHeadDetailView(APIView):
             fee_head = FeeHead.objects.get(pk=pk)
         except FeeHead.DoesNotExist:
             return Response({'message': 'Fee head not found'}, status=status.HTTP_404_NOT_FOUND)
+        admin_branch_ids = set(str(b) for b in get_admin_branch_ids(request.user))
+        if str(fee_head.branch_id) not in admin_branch_ids:
+            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         fee_head.is_active = False
         fee_head.save()
         return Response({'message': 'Fee head deactivated'})
@@ -69,6 +75,9 @@ class GenerateInvoicesView(APIView):
             fee_head = FeeHead.objects.get(pk=fee_head_id)
         except FeeHead.DoesNotExist:
             return Response({'message': 'Fee head not found'}, status=status.HTTP_404_NOT_FOUND)
+        admin_branch_ids = set(str(b) for b in get_admin_branch_ids(request.user))
+        if str(fee_head.branch_id) not in admin_branch_ids:
+            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         from api.models import Student
         if student_ids:
             students = Student.objects.filter(id__in=student_ids, branch=fee_head.branch)
@@ -116,6 +125,9 @@ class PaymentListCreateView(APIView):
         for field in required:
             if not request.data.get(field):
                 return Response({'message': f'{field} is required'}, status=status.HTTP_400_BAD_REQUEST)
+        admin_branch_ids = set(str(b) for b in get_admin_branch_ids(request.user))
+        if str(request.data['branch_id']) not in admin_branch_ids:
+            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         payment = Payment.objects.create(
             student_id=request.data['student_id'],
             branch_id=request.data['branch_id'],
@@ -135,6 +147,9 @@ class PaymentPayView(APIView):
             payment = Payment.objects.get(pk=pk)
         except Payment.DoesNotExist:
             return Response({'message': 'Payment not found'}, status=status.HTTP_404_NOT_FOUND)
+        admin_branch_ids = set(str(b) for b in get_admin_branch_ids(request.user))
+        if str(payment.branch_id) not in admin_branch_ids:
+            return Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         payment.status = 'paid'
         payment.paid_date = datetime.date.today()
         payment.save()
