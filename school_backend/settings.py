@@ -59,6 +59,11 @@ WSGI_APPLICATION = 'school_backend.wsgi.application'
 import urllib.parse as _urlparse
 
 _database_url = config('DATABASE_URL', default='')
+_db_options = {}
+_sslmode = config('DB_SSLMODE', default='')
+if _sslmode:
+    _db_options['sslmode'] = _sslmode
+
 if _database_url:
     _u = _urlparse.urlparse(_database_url)
     DATABASES = {
@@ -69,15 +74,11 @@ if _database_url:
             'PASSWORD': _u.password,
             'HOST': _u.hostname,
             'PORT': _u.port or 5432,
+            'OPTIONS': _db_options,
             'CONN_MAX_AGE': 0,
         }
     }
 else:
-    _db_options = {}
-    _sslmode = config('DB_SSLMODE', default='')
-    if _sslmode:
-        _db_options['sslmode'] = _sslmode
-
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
