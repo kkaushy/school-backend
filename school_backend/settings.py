@@ -56,24 +56,40 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'school_backend.wsgi.application'
 
-_db_options = {}
-_sslmode = config('DB_SSLMODE', default='')
-if _sslmode:
-    _db_options['sslmode'] = _sslmode
-    _db_options['sslrootcert'] = 'disable'  # Skip cert verification; encryption still active
+import urllib.parse as _urlparse
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', default='school_db'),
-        'USER': config('DB_USER', default='postgres'),
-        'PASSWORD': config('DB_PASSWORD', default=''),
-        'HOST': config('DB_HOST', default='localhost'),
-        'PORT': config('DB_PORT', default='5432'),
-        'OPTIONS': _db_options,
-        'CONN_MAX_AGE': 0,  # Required for PgBouncer transaction pooler
+_database_url = config('DATABASE_URL', default='')
+if _database_url:
+    _u = _urlparse.urlparse(_database_url)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': _u.path.lstrip('/'),
+            'USER': _u.username,
+            'PASSWORD': _u.password,
+            'HOST': _u.hostname,
+            'PORT': _u.port or 5432,
+            'CONN_MAX_AGE': 0,
+        }
     }
-}
+else:
+    _db_options = {}
+    _sslmode = config('DB_SSLMODE', default='')
+    if _sslmode:
+        _db_options['sslmode'] = _sslmode
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DB_NAME', default='school_db'),
+            'USER': config('DB_USER', default='postgres'),
+            'PASSWORD': config('DB_PASSWORD', default=''),
+            'HOST': config('DB_HOST', default='localhost'),
+            'PORT': config('DB_PORT', default='5432'),
+            'OPTIONS': _db_options,
+            'CONN_MAX_AGE': 0,
+        }
+    }
 
 AUTH_USER_MODEL = 'api.User'
 
