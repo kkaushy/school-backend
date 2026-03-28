@@ -13,7 +13,9 @@ class DashboardStatsView(APIView):
     @require_roles('company_admin', 'branch_admin', 'teacher')
     def get(self, request):
         user = request.user
-        if user.role == 'company_admin':
+        if user.is_superuser:
+            branch_ids = Branch.objects.values_list('id', flat=True)
+        elif user.role == 'company_admin':
             branch_ids = user.branches.values_list('id', flat=True)
         else:
             branch_ids = BranchUser.objects.filter(user=user).values_list('branch_id', flat=True)
