@@ -14,6 +14,9 @@ class PassThroughAuthentication:
             return (user, None)
         return None
 
+    def authenticate_header(self, request):
+        return 'Bearer'
+
 
 REST_FRAMEWORK = {
     **REST_FRAMEWORK,  # noqa: F405
