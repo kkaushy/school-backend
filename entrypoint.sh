@@ -9,6 +9,9 @@ else
     echo "Migrations complete."
 fi
 
+echo "=== Ensuring admin user exists ==="
+python manage.py create_admin
+
 echo "=== Starting gunicorn on port ${PORT:-8000} ==="
 exec gunicorn school_backend.wsgi \
     --bind "0.0.0.0:${PORT:-8000}" \

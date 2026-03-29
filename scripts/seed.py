@@ -9,7 +9,7 @@ Creates a realistic hierarchy of data via the REST API:
 Usage:
     python scripts/seed.py                        # hits localhost:5000
     python scripts/seed.py http://localhost:8000  # custom URL
-    python scripts/seed.py https://your-app.onrender.com
+    python scripts/seed.py https://school-backend-docker.onrender.com
 
 The script is idempotent where possible (409 on duplicate email is treated as OK).
 """
@@ -39,6 +39,7 @@ def info(m): print(f"    {Y}→{X} {m}")
 # ── HTTP helpers ──────────────────────────────────────────────────────────────
 
 def _req(method, path, body=None, token=None, params=None, expect=None, label=None):
+    path = path.rstrip('/')  # URLs in this project have no trailing slashes
     hdrs = {"Content-Type": "application/json"}
     if token:
         hdrs["Authorization"] = f"Bearer {token}"
@@ -587,9 +588,35 @@ def step_profile():
 
 
 def step_dashboard():
-    head("12 · Dashboard Stats")
-    token = STATE["admin_token"]
-    get("/api/dashboard/stats/", token=token, label="GET dashboard/stats")
+    head("12 · Dashboard Stats (all roles)")
+
+    # company_admin — sees all branches
+    get("/api/dashboard/stats/", token=STATE["admin_token"],
+        label="GET dashboard/stats [company_admin]")
+
+    # branch_admin — scoped to their branch via BranchUser
+    ba_token = login(BRANCH_ADMINS[0]["email"], BRANCH_ADMINS[0]["password"])
+    if ba_token:
+        get("/api/dashboard/stats/", token=ba_token,
+            label="GET dashboard/stats [branch_admin]")
+    else:
+        fail("GET dashboard/stats [branch_admin] — login failed")
+
+    # teacher — scoped to their branch via BranchUser
+    t_token = login(TEACHERS[0]["email"], TEACHERS[0]["password"])
+    if t_token:
+        get("/api/dashboard/stats/", token=t_token,
+            label="GET dashboard/stats [teacher]")
+    else:
+        fail("GET dashboard/stats [teacher] — login failed")
+
+    # parent and student cannot access dashboard (403 expected)
+    p_token = login(PARENTS[0]["email"], PARENTS[0]["password"])
+    if p_token:
+        _req("GET", "/api/dashboard/stats/", token=p_token, expect=[403],
+             label="GET dashboard/stats [parent → 403 expected]")
+    else:
+        fail("GET dashboard/stats [parent] — login failed")
 
 
 # ── summary ───────────────────────────────────────────────────────────────────
@@ -613,6 +640,12 @@ def summary():
     print(f"    Fee Heads:     {len(STATE.get('fee_head_ids', []))}")
     print(f"    Payments:      {len(STATE.get('payment_ids', []))}")
     print(f"    Notifications: {len(STATE.get('notification_ids', []))}")
+    print(f"\n  {B}Dashboard tested as:{X} company_admin, branch_admin, teacher, parent(→403)")
+    print(f"\n  {B}Test credentials:{X}")
+    print(f"    company_admin:  {ADMIN_EMAIL} / {ADMIN_PASSWORD}")
+    print(f"    branch_admin:   {BRANCH_ADMINS[0]['email']} / {BRANCH_ADMINS[0]['password']}")
+    print(f"    teacher:        {TEACHERS[0]['email']} / {TEACHERS[0]['password']}")
+    print(f"    parent:         {PARENTS[0]['email']} / {PARENTS[0]['password']}")
     print(f"\n  {B}API Docs:{X} {BASE_URL}/api/docs/\n")
 
 
