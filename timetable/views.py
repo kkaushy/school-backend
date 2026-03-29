@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import TimetableSlot
 from .serializers import TimetableSlotSerializer
 from api.permissions import require_roles
+from api.constants import COMPANY_ADMIN, BRANCH_ADMIN, TEACHER, PARENT, STUDENT
 from branches.models import BranchUser
 from classes.models import ClassTeacher, ClassStudent
 
@@ -18,20 +19,20 @@ def _get_admin_branch_ids(user):
 def get_accessible_slots(user, class_id=None):
     if user.is_superuser:
         qs = TimetableSlot.objects.all()
-    elif user.role == 'company_admin':
+    elif user.role == COMPANY_ADMIN:
         branch_ids = user.branches.values_list('id', flat=True)
         qs = TimetableSlot.objects.filter(branch_id__in=branch_ids)
-    elif user.role == 'branch_admin':
+    elif user.role == BRANCH_ADMIN:
         branch_ids = BranchUser.objects.filter(user=user).values_list('branch_id', flat=True)
         qs = TimetableSlot.objects.filter(branch_id__in=branch_ids)
-    elif user.role == 'teacher':
+    elif user.role == TEACHER:
         class_ids = ClassTeacher.objects.filter(teacher=user).values_list('class_ref_id', flat=True)
         qs = TimetableSlot.objects.filter(class_ref_id__in=class_ids)
-    elif user.role == 'parent':
+    elif user.role == PARENT:
         student_ids = user.children.values_list('id', flat=True)
         class_ids = ClassStudent.objects.filter(student_id__in=student_ids).values_list('class_ref_id', flat=True)
         qs = TimetableSlot.objects.filter(class_ref_id__in=class_ids)
-    elif user.role == 'student':
+    elif user.role == STUDENT:
         try:
             class_ids = ClassStudent.objects.filter(student=user.student_profile).values_list('class_ref_id', flat=True)
             qs = TimetableSlot.objects.filter(class_ref_id__in=class_ids)
@@ -52,7 +53,7 @@ class TimetableListCreateView(APIView):
         slots = get_accessible_slots(request.user, class_id)
         return Response(TimetableSlotSerializer(slots, many=True).data)
 
-    @require_roles('company_admin', 'branch_admin')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN)
     def post(self, request):
         required = ['class_id', 'day_of_week', 'start_time', 'end_time', 'subject_name']
         for field in required:
@@ -79,7 +80,7 @@ class TimetableListCreateView(APIView):
 class TimetableDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @require_roles('company_admin', 'branch_admin')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN)
     def delete(self, request, pk):
         try:
             slot = TimetableSlot.objects.get(pk=pk)

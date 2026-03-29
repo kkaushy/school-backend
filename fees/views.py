@@ -7,6 +7,7 @@ from django.db import transaction
 from .models import FeeHead, Payment
 from .serializers import FeeHeadSerializer, PaymentSerializer
 from api.permissions import require_roles
+from api.constants import COMPANY_ADMIN, BRANCH_ADMIN
 from branches.models import BranchUser
 
 
@@ -19,7 +20,7 @@ def get_admin_branch_ids(user):
 class FeeHeadListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @require_roles('company_admin', 'branch_admin')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN)
     def get(self, request):
         user = request.user
         if user.is_superuser:
@@ -29,7 +30,7 @@ class FeeHeadListCreateView(APIView):
             fee_heads = FeeHead.objects.filter(branch_id__in=branch_ids, is_active=True)
         return Response(FeeHeadSerializer(fee_heads, many=True).data)
 
-    @require_roles('company_admin', 'branch_admin')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN)
     def post(self, request):
         required = ['branch_id', 'name', 'amount', 'frequency']
         for field in required:
@@ -52,7 +53,7 @@ class FeeHeadListCreateView(APIView):
 class FeeHeadDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @require_roles('company_admin', 'branch_admin')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN)
     def delete(self, request, pk):
         try:
             fee_head = FeeHead.objects.get(pk=pk)

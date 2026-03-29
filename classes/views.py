@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Class, ClassStudent, ClassTeacher
 from .serializers import ClassSerializer
 from api.permissions import require_roles
+from api.constants import COMPANY_ADMIN, BRANCH_ADMIN, TEACHER
 from branches.models import BranchUser
 
 
@@ -17,13 +18,13 @@ def _get_admin_branch_ids(user):
 def get_accessible_classes(user):
     if user.is_superuser:
         return Class.objects.all()
-    if user.role == 'company_admin':
+    if user.role == COMPANY_ADMIN:
         branch_ids = user.branches.values_list('id', flat=True)
         return Class.objects.filter(branch_id__in=branch_ids)
-    elif user.role == 'branch_admin':
+    elif user.role == BRANCH_ADMIN:
         branch_ids = BranchUser.objects.filter(user=user).values_list('branch_id', flat=True)
         return Class.objects.filter(branch_id__in=branch_ids)
-    elif user.role == 'teacher':
+    elif user.role == TEACHER:
         class_ids = ClassTeacher.objects.filter(teacher=user).values_list('class_ref_id', flat=True)
         return Class.objects.filter(id__in=class_ids)
     return Class.objects.none()
@@ -36,7 +37,7 @@ class ClassListCreateView(APIView):
         classes = get_accessible_classes(request.user)
         return Response(ClassSerializer(classes, many=True).data)
 
-    @require_roles('company_admin', 'branch_admin')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN)
     def post(self, request):
         name = request.data.get('name')
         branch_id = request.data.get('branch_id')
@@ -53,7 +54,7 @@ class ClassListCreateView(APIView):
 class ClassDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @require_roles('company_admin', 'branch_admin')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN)
     def delete(self, request, pk):
         try:
             cls = Class.objects.get(pk=pk)
@@ -70,7 +71,7 @@ class ClassDetailView(APIView):
 class AssignTeacherView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @require_roles('company_admin', 'branch_admin')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN)
     def post(self, request):
         class_id = request.data.get('class_id')
         teacher_id = request.data.get('teacher_id')
@@ -90,7 +91,7 @@ class AssignTeacherView(APIView):
 class AssignStudentView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @require_roles('company_admin', 'branch_admin', 'teacher')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN, TEACHER)
     def post(self, request):
         class_id = request.data.get('class_id')
         student_id = request.data.get('student_id')

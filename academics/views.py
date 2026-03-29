@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import AcademicRecord
 from .serializers import AcademicRecordSerializer
 from api.permissions import require_roles
+from api.constants import COMPANY_ADMIN, BRANCH_ADMIN, TEACHER
 from branches.models import BranchUser
 from classes.models import ClassTeacher, ClassStudent
 
@@ -12,13 +13,13 @@ from classes.models import ClassTeacher, ClassStudent
 def get_accessible_records(user):
     if user.is_superuser:
         return AcademicRecord.objects.all()
-    if user.role == 'company_admin':
+    if user.role == COMPANY_ADMIN:
         branch_ids = user.branches.values_list('id', flat=True)
         return AcademicRecord.objects.filter(branch_id__in=branch_ids)
-    elif user.role == 'branch_admin':
+    elif user.role == BRANCH_ADMIN:
         branch_ids = BranchUser.objects.filter(user=user).values_list('branch_id', flat=True)
         return AcademicRecord.objects.filter(branch_id__in=branch_ids)
-    elif user.role == 'teacher':
+    elif user.role == TEACHER:
         class_ids = ClassTeacher.objects.filter(teacher=user).values_list('class_ref_id', flat=True)
         return AcademicRecord.objects.filter(class_ref_id__in=class_ids)
     elif user.role == 'parent':
@@ -39,7 +40,7 @@ class AcademicRecordListCreateView(APIView):
         records = get_accessible_records(request.user)
         return Response(AcademicRecordSerializer(records, many=True).data)
 
-    @require_roles('company_admin', 'branch_admin', 'teacher')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN, TEACHER)
     def post(self, request):
         if not request.user.is_superuser:
             # Additional permission checks if needed, but since decorator handles roles, maybe not

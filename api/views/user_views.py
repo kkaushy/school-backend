@@ -6,11 +6,12 @@ from django.db import transaction
 from ..models import User
 from ..serializers import UserSerializer
 from ..permissions import require_roles
+from ..constants import COMPANY_ADMIN, BRANCH_ADMIN
 from branches.models import BranchUser
 
 
 def _get_admin_branch_ids(user):
-    if user.role == 'company_admin':
+    if user.role == COMPANY_ADMIN:
         return list(user.branches.values_list('id', flat=True))
     return list(BranchUser.objects.filter(user=user).values_list('branch_id', flat=True))
 
@@ -18,12 +19,12 @@ def _get_admin_branch_ids(user):
 class UserListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @require_roles('company_admin', 'branch_admin')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN)
     def get(self, request):
         user = request.user
         if user.is_superuser:
             users = User.objects.all()
-        elif user.role == 'company_admin':
+        elif user.role == COMPANY_ADMIN:
             branch_ids = user.branches.values_list('id', flat=True)
             user_ids = BranchUser.objects.filter(branch_id__in=branch_ids).values_list('user_id', flat=True)
             users = User.objects.filter(id__in=user_ids).exclude(id=user.id)
@@ -33,7 +34,7 @@ class UserListCreateView(APIView):
             users = User.objects.filter(id__in=user_ids, role__in=['teacher', 'branch_admin'])
         return Response(UserSerializer(users, many=True).data)
 
-    @require_roles('company_admin', 'branch_admin')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN)
     def post(self, request):
         required = ['name', 'email', 'password', 'role']
         for field in required:
@@ -62,7 +63,7 @@ class UserListCreateView(APIView):
 class UserDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @require_roles('company_admin', 'branch_admin')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN)
     def delete(self, request, pk):
         try:
             user = User.objects.get(pk=pk)
@@ -81,10 +82,10 @@ class UserDetailView(APIView):
 class ParentListView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @require_roles('company_admin', 'branch_admin')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN)
     def get(self, request):
         user = request.user
-        if user.role == 'company_admin':
+        if user.role == COMPANY_ADMIN:
             branch_ids = user.branches.values_list('id', flat=True)
             user_ids = BranchUser.objects.filter(branch_id__in=branch_ids).values_list('user_id', flat=True)
             parents = User.objects.filter(id__in=user_ids, role='parent')

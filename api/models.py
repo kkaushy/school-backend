@@ -2,6 +2,7 @@ import uuid
 import bcrypt
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from .constants import COMPANY_ADMIN
 
 
 class UserManager(BaseUserManager):
@@ -16,7 +17,7 @@ class UserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
-        extra_fields.setdefault('role', 'company_admin')
+        extra_fields.setdefault('role', COMPANY_ADMIN)
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('name', 'Admin')

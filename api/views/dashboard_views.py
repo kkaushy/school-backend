@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from ..models import Student
 from ..permissions import require_roles
+from ..constants import COMPANY_ADMIN, BRANCH_ADMIN, TEACHER
 from branches.models import Branch, BranchUser
 from fees.models import Payment
 
@@ -10,12 +11,12 @@ from fees.models import Payment
 class DashboardStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @require_roles('company_admin', 'branch_admin', 'teacher')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN, TEACHER)
     def get(self, request):
         user = request.user
         if user.is_superuser:
             branch_ids = Branch.objects.values_list('id', flat=True)
-        elif user.role == 'company_admin':
+        elif user.role == COMPANY_ADMIN:
             branch_ids = user.branches.values_list('id', flat=True)
         else:
             branch_ids = BranchUser.objects.filter(user=user).values_list('branch_id', flat=True)

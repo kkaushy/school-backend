@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Branch, BranchUser
 from .serializers import BranchSerializer
 from api.permissions import require_roles
+from api.constants import COMPANY_ADMIN
 
 
 class BranchListCreateView(APIView):
@@ -14,7 +15,7 @@ class BranchListCreateView(APIView):
         user = request.user
         if user.is_superuser:
             branches = Branch.objects.all()
-        elif user.role == 'company_admin':
+        elif user.role == COMPANY_ADMIN:
             branches = Branch.objects.filter(company_admin=user)
         else:
             branch_ids = BranchUser.objects.filter(user=user).values_list('branch_id', flat=True)
@@ -42,11 +43,11 @@ class BranchDetailView(APIView):
             branch = Branch.objects.get(pk=pk)
         except Branch.DoesNotExist:
             return None, Response({'message': 'Branch not found'}, status=status.HTTP_404_NOT_FOUND)
-        if not user.is_superuser and user.role == 'company_admin' and branch.company_admin != user:
+        if not user.is_superuser and user.role == COMPANY_ADMIN and branch.company_admin != user:
             return None, Response({'message': 'Insufficient permissions'}, status=status.HTTP_403_FORBIDDEN)
         return branch, None
 
-    @require_roles('company_admin')
+    @require_roles(COMPANY_ADMIN)
     def put(self, request, pk):
         branch, err = self._get_branch(pk, request.user)
         if err:
@@ -58,7 +59,7 @@ class BranchDetailView(APIView):
         branch.save()
         return Response(BranchSerializer(branch).data)
 
-    @require_roles('company_admin')
+    @require_roles(COMPANY_ADMIN)
     def delete(self, request, pk):
         branch, err = self._get_branch(pk, request.user)
         if err:

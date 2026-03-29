@@ -7,12 +7,13 @@ from django.utils import timezone
 from .models import Notification, NotificationRecipient
 from .serializers import NotificationSerializer
 from api.permissions import require_roles
+from api.constants import COMPANY_ADMIN, BRANCH_ADMIN, TEACHER, PARENT, STUDENT
 from api.models import User
 from branches.models import BranchUser
 from classes.models import ClassStudent, ClassTeacher
 
 ROLE_TARGET_MAP = {
-    'company_admin': ['company_admin', 'branch_admin', 'teacher', 'parent', 'student'],
+    COMPANY_ADMIN: [COMPANY_ADMIN, BRANCH_ADMIN, TEACHER, PARENT, STUDENT],
     'branch_admin': ['branch_admin', 'teacher', 'parent', 'student'],
     'teacher': ['student', 'branch_admin'],
 }
@@ -50,7 +51,7 @@ class NotificationListCreateView(APIView):
         serializer = NotificationSerializer(notifications, many=True, context={'request': request})
         return Response(serializer.data)
 
-    @require_roles('company_admin', 'branch_admin', 'teacher')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN, TEACHER)
     def post(self, request):
         title = request.data.get('title')
         message = request.data.get('message')

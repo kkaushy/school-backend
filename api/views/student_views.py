@@ -5,13 +5,14 @@ from rest_framework.permissions import IsAuthenticated
 from ..models import Student
 from ..serializers import StudentSerializer
 from ..permissions import require_roles
+from ..constants import COMPANY_ADMIN, BRANCH_ADMIN, TEACHER, PARENT, STUDENT
 from branches.models import BranchUser
 from classes.models import ClassTeacher, ClassStudent
 
 
 def _get_admin_branch_ids(user):
     from branches.models import BranchUser
-    if user.role == 'company_admin':
+    if user.role == COMPANY_ADMIN:
         return list(user.branches.values_list('id', flat=True))
     return list(BranchUser.objects.filter(user=user).values_list('branch_id', flat=True))
 
@@ -19,19 +20,19 @@ def _get_admin_branch_ids(user):
 def get_accessible_students(user):
     if user.is_superuser:
         return Student.objects.all()
-    if user.role == 'company_admin':
+    if user.role == COMPANY_ADMIN:
         branch_ids = user.branches.values_list('id', flat=True)
         return Student.objects.filter(branch_id__in=branch_ids)
-    elif user.role == 'branch_admin':
+    elif user.role == BRANCH_ADMIN:
         branch_ids = BranchUser.objects.filter(user=user).values_list('branch_id', flat=True)
         return Student.objects.filter(branch_id__in=branch_ids)
-    elif user.role == 'teacher':
+    elif user.role == TEACHER:
         class_ids = ClassTeacher.objects.filter(teacher=user).values_list('class_ref_id', flat=True)
         student_ids = ClassStudent.objects.filter(class_ref_id__in=class_ids).values_list('student_id', flat=True)
         return Student.objects.filter(id__in=student_ids)
-    elif user.role == 'parent':
+    elif user.role == PARENT:
         return Student.objects.filter(parent=user)
-    elif user.role == 'student':
+    elif user.role == STUDENT:
         try:
             return Student.objects.filter(user=user)
         except Exception:
@@ -46,7 +47,7 @@ class StudentListCreateView(APIView):
         students = get_accessible_students(request.user)
         return Response(StudentSerializer(students, many=True).data)
 
-    @require_roles('company_admin', 'branch_admin')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN)
     def post(self, request):
         name = request.data.get('name')
         branch_id = request.data.get('branch_id')
@@ -66,7 +67,7 @@ class StudentListCreateView(APIView):
 class StudentDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @require_roles('company_admin', 'branch_admin')
+    @require_roles(COMPANY_ADMIN, BRANCH_ADMIN)
     def delete(self, request, pk):
         try:
             student = Student.objects.get(pk=pk)
